@@ -6,13 +6,13 @@ import { getFirestore, doc, getDoc, setDoc, collection, writeBatch, query, getDo
 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBTINJyBV3sDQJp9xLMVt8VdU-BkvrB4Gk",
-    authDomain: "plm-starbucks.firebaseapp.com",
-    projectId: "plm-starbucks",
-    storageBucket: "plm-starbucks.appspot.com",
-    messagingSenderId: "788196609197",
-    appId: "1:788196609197:web:f0800198a84e80f728ca24"
-  };
+  apiKey: "AIzaSyAqe11mEvXZfXAQdAkLkxmjydPOCwHiB-0",
+  authDomain: "plm-lily-star.firebaseapp.com",
+  projectId: "plm-lily-star",
+  storageBucket: "plm-lily-star.appspot.com",
+  messagingSenderId: "930008233125",
+  appId: "1:930008233125:web:dfa14f65dadd4e8968494c"
+};
   
 
   const app = initializeApp(firebaseConfig);

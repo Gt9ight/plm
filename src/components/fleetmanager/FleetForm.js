@@ -137,10 +137,10 @@ function Fleetform() {
 
   return (
     <div>
-      {/* <div className='current user'>
-        <p className='username'>Welcome,</p> */}
-        {/* <button>Log out</button> */}
-      {/* </div>
+       {/* <div className='current user'>
+        <p className='username'>Welcome,</p> 
+         <button>Log out</button> 
+       </div> */}
       <h1 className='title'>FleetPro</h1>
 
       <div className='customer-creation'>
@@ -151,10 +151,10 @@ function Fleetform() {
         placeholder='Enter Customer Name'
         />
         <button onClick={handleCreateNewCustomer}>Start</button>
-      </div> */}
+      </div> 
 
 
-      <h2 className='customer'>PLM/Starbucks</h2>
+      <h2 className='customer'>Customer: {selectedCustomer}</h2>
       <div className='input-section'>
         <input
         type='text'
