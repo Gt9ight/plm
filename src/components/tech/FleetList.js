@@ -3,11 +3,15 @@ import { db, storage } from '../../utilis/Firebase';
 import { getDocs, collection, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import './fleetList.css'
+
 const FleetList = () => {
   const [FleetsFromFirestore, setFleetsFromFirestore] = useState([]);
   const [showCustomerCategory, setShowCustomerForCategory] = useState(null);
-
-
+  const [commentInputVisible, setCommentInputVisible] = useState(false);
+  const [currentUnitId, setCurrentUnitId] = useState(null);
+  const [comment, setComment] = useState('');
+  const [isImagePopupVisible, setImagePopupVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,20 +30,10 @@ const FleetList = () => {
     fetchData();
   }, []);
 
-
-  
   const handleDone = async (UnitId, isDone) => {
     try {
-
-        const todoRef = doc(db, 'fleets', UnitId);
-        await updateDoc(todoRef, {
-          done: isDone,
-
-        });
-      
-
-
-     
+      const todoRef = doc(db, 'fleets', UnitId);
+      await updateDoc(todoRef, { done: isDone });
       const updatedTask = FleetsFromFirestore.map((unit) =>
         unit.id === UnitId ? { ...unit, done: isDone } : unit
       );
@@ -49,11 +43,13 @@ const FleetList = () => {
     }
   };
 
-  const uploadImages = async (UnitId, files) => {
+  const uploadImages = async (UnitId, files, comment) => {
     try {
+      const existingUnit = FleetsFromFirestore.find(unit => unit.id === UnitId);
+      const existingImageUrls = existingUnit?.imageUrls || [];
+      const existingComments = existingUnit?.comments || [];
 
- 
-      const imageUrls = await Promise.all(
+      const newImageUrls = await Promise.all(
         files.map(async (file) => {
           const storageRef = ref(storage, `${UnitId}/${file.name}`);
           await uploadBytes(storageRef, file);
@@ -61,24 +57,45 @@ const FleetList = () => {
         })
       );
 
- 
+      const updatedImageUrls = [...existingImageUrls, ...newImageUrls];
+      const updatedComments = [...existingComments, comment];
+
       const fleetRef = doc(db, 'fleets', UnitId);
       await updateDoc(fleetRef, {
-        imageUrls: imageUrls,
+        imageUrls: updatedImageUrls,
+        comments: updatedComments,
       });
-
 
       setFleetsFromFirestore(prevState => {
         return prevState.map(unit =>
-          unit.id === UnitId ? { ...unit, imageUrls: imageUrls } : unit
+          unit.id === UnitId ? { ...unit, imageUrls: updatedImageUrls, comments: updatedComments } : unit
         );
       });
 
-      console.log('Image uploaded successfully');
+      console.log('Image and comment uploaded successfully');
+      setCommentInputVisible(false);
+      setComment('');
     } catch (error) {
-      console.error('Error uploading image: ', error);
+      console.error('Error uploading image and comment: ', error);
     }
   };
+
+  const handleUploadClick = (unitId) => {
+    setCurrentUnitId(unitId);
+    setCommentInputVisible(true);
+  };
+
+  const handleCommentSubmit = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      uploadImages(currentUnitId, files, comment);
+    };
+    fileInput.click();
+  };
+
   const ByCustomer = {};
   FleetsFromFirestore.forEach((unit) => {
     if (!ByCustomer[unit.customer]) {
@@ -87,13 +104,9 @@ const FleetList = () => {
     ByCustomer[unit.customer].push(unit);
   });
 
-
-
- 
   const getCustomerProgress = (cust) => {
     const totalTodos = ByCustomer[cust]?.length || 0;
     const completedTodos = ByCustomer[cust]?.filter((unit) => unit.done).length || 0;
-
     return totalTodos > 0 ? (completedTodos / totalTodos) * 100 : 0;
   };
 
@@ -113,20 +126,36 @@ const FleetList = () => {
     return ByCustomer[cust]?.filter((unit) => unit.done).length || 0;
   };
 
-  const UnitImages = ({ imageUrls }) => {
-    return ( 
-      <div className="unit-images">
-        {imageUrls && imageUrls.map((imageUrl, index) => (
-          <img key={index} src={imageUrl} alt={`Image ${index + 1}`} className='unit-image'/>
-        ))}
-      </div>
-    );
+  const handleImageClick = (imageUrl) => {
+    setSelectedImageUrl(imageUrl);
+    setImagePopupVisible(true);
   };
+
+  const closeImagePopup = () => {
+    setImagePopupVisible(false);
+    setSelectedImageUrl('');
+  };
+
+  const UnitImages = ({ imageUrls, comments }) => (
+    <div className="unit-images">
+      {imageUrls && imageUrls.map((imageUrl, index) => (
+        <div key={index}>
+          <img
+            src={imageUrl}
+            alt={`Image ${index + 1}`}
+            className='unit-image'
+            onClick={() => handleImageClick(imageUrl)}
+          />
+          {comments[index] && <p className='unit-comment'>Position: {comments[index]}</p>}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div>
       <div className='current-user'>
-        <p className='username'>Welcome, </p>        
+        <p className='username'>Welcome, </p>
         {/* <button className='logout'>Log Out</button> */}
       </div>
       <h2 className='fleetList-title'>Fleets</h2>
@@ -137,7 +166,7 @@ const FleetList = () => {
               onClick={() => toggleCustomerForCategory(Fleetcustomer)}
               className={`category-header ${showCustomerCategory === Fleetcustomer ? 'active' : ''}`}
             >
-               <h3>{Fleetcustomer} - {getCustomerCompletedCount(Fleetcustomer)}/{getCustomerFleetCount(Fleetcustomer)}Units</h3>
+              <h3>{Fleetcustomer} - {getCustomerCompletedCount(Fleetcustomer)}/{getCustomerFleetCount(Fleetcustomer)} Units</h3>
               <div className="progress-bar">
                 <div
                   className="progress-bar-fill"
@@ -150,55 +179,67 @@ const FleetList = () => {
               <ul className="fleet-list">
                 {ByCustomer[Fleetcustomer]
                   .sort((unitA, unitB) => {
-                  const priorityOrder = { low: 3, medium: 2, high: 1 };
-                  return priorityOrder[unitA.priority] - priorityOrder[unitB.priority];
-              }).map((unit) => (
-                  <li key={unit.id} className={`unit-item ${unit.done ? 'done' : ''} ${unit.priority}`}>
-                    <strong>Unit Number:</strong> {unit.UnitNumber}
-                   
-                    <ul>
-                      {unit.TaskSpecifics &&
-                        unit.TaskSpecifics.length > 0 &&
-                        unit.TaskSpecifics.map((info, index) => (
-                          <li key={index}>
-                            <strong>Position:</strong> {info.position}, <strong>Specifics:</strong>{' '}
-                            {info.specifics}, <strong>Tread Depth:</strong> {info.treadDepth}/32
-
-                          </li>
-                        ))}
-                    </ul>
-                    <UnitImages  imageUrls={unit.imageUrls}  />
-                    <button
-                      className={`unit-button ${unit.done ? 'completed' : ''}`}
-                      onClick={() => handleDone(unit.id, !unit.done)}
-                    >
-                          {unit.done ? 'Completed' : 'Mark Done'}
-                    </button>
-                    <button
+                    const priorityOrder = { low: 3, medium: 2, high: 1 };
+                    return priorityOrder[unitA.priority] - priorityOrder[unitB.priority];
+                  }).map((unit) => (
+                    <li key={unit.id} className={`unit-item ${unit.done ? 'done' : ''} ${unit.priority}`}>
+                      <strong>Unit Number:</strong> {unit.UnitNumber}
+                      <ul>
+                        {unit.TaskSpecifics &&
+                          unit.TaskSpecifics.length > 0 &&
+                          unit.TaskSpecifics.map((info, index) => (
+                            <li key={index}>
+                              <strong>Position:</strong> {info.position}, <strong>Specifics:</strong>{' '}
+                              {info.specifics}, <strong>Tread Depth:</strong> {info.treadDepth}/32
+                            </li>
+                          ))}
+                      </ul>
+                      <UnitImages imageUrls={unit.imageUrls} comments={unit.comments} />
+                      <button
+                        className={`unit-button ${unit.done ? 'completed' : ''}`}
+                        onClick={() => handleDone(unit.id, !unit.done)}
+                      >
+                        {unit.done ? 'Completed' : 'Mark Done'}
+                      </button>
+                      <button
                         className='unit-button'
-                        onClick={() => {
-                          const fileInput = document.createElement('input');
-                          fileInput.type = 'file';
-                          fileInput.multiple = true;
-                          fileInput.onchange = (e) => {
-                            const files = Array.from(e.target.files);
-                            uploadImages(unit.id, files);
-                          };
-                          fileInput.click();
-                        }}
+                        onClick={() => handleUploadClick(unit.id)}
                       >
                         Upload Image
                       </button>
-
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+              </ul> 
             )}
           </div>
         ))}
       </div>
+      {commentInputVisible && (
+        <>
+          <div className="overlay" onClick={() => setCommentInputVisible(false)} />
+          <div className="comment-popup">
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Enter your comment"
+            />
+            <button onClick={handleCommentSubmit}>Enter Position and Upload Images</button>
+          </div>
+        </>
+      )}
+
+{isImagePopupVisible && (
+        <>
+          <div className="overlay" onClick={closeImagePopup} />
+          <div className="image-popup">
+            <img src={selectedImageUrl} alt="Selected" />
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default FleetList;
+

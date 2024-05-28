@@ -1,8 +1,9 @@
 import React, {useState, useEffect} from 'react'
 import FleetSpecifics from './FleetSpecifics';
 import './fleetform.css'
-import { createFleetDatabase, db } from '../../utilis/Firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { createFleetDatabase, db, storage } from '../../utilis/Firebase';
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 function Fleetform() {
@@ -16,6 +17,10 @@ function Fleetform() {
   const [showPopup, setShowPopup] = useState(false);
   const [showCustomerCategory, setShowCustomerForCategory] = useState(null);
   const [FleetsFromFirestore, setFleetsFromFirestore] = useState([]);
+  const [comment, setComment] = useState('');
+  const [commentInputVisible, setCommentInputVisible] = useState(false);
+  const [isImagePopupVisible, setImagePopupVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
 
   const handleNewCustomerChange = (e) => {
     setNewCustomer(e.target.value);
@@ -90,6 +95,62 @@ function Fleetform() {
     fetchData();
   }, []);
 
+  const handleUploadClick = (unitIndex) => {
+    setCurrentUnitIndex(unitIndex);
+    setCommentInputVisible(true);
+  };
+
+  const handleCommentSubmit = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      uploadImages(currentUnitIndex, files, comment);
+    };
+    fileInput.click();
+    setCommentInputVisible(false);
+  };
+
+  const uploadImages = async (unitIndex, files, comment) => {
+    try {
+      const existingUnit = customerFleet[unitIndex];
+      const existingImageUrls = existingUnit?.imageUrls || [];
+      const existingComments = existingUnit?.comments || [];
+
+      const newImageUrls = await Promise.all(
+        files.map(async (file) => {
+          const storageRef = ref(storage, `${existingUnit.UnitNumber}/${file.name}`);
+          await uploadBytes(storageRef, file);
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      const updatedImageUrls = [...existingImageUrls, ...newImageUrls];
+      const updatedComments = [...existingComments, comment];  
+
+      const updatedUnit = { ...existingUnit, imageUrls: updatedImageUrls, comments: updatedComments };
+      const updatedCustomerFleet = [...customerFleet];
+      updatedCustomerFleet[unitIndex] = updatedUnit;
+      setCustomerFleet(updatedCustomerFleet);
+
+      // Update Firestore
+      const fleetRef = doc(db, 'fleets', existingUnit.id);
+      await updateDoc(fleetRef, {
+        imageUrls: updatedImageUrls,
+        comments: updatedComments,
+      });
+
+      console.log('Image and comment uploaded successfully');
+      setCommentInputVisible(false);
+      setComment('');
+    } catch (error) {
+      console.error('Error uploading image and comment: ', error);
+    }
+  };
+
+  
+
   const ByCustomer = {};
   FleetsFromFirestore.forEach((unit) => {
     if (!ByCustomer[unit.customer]) {
@@ -121,15 +182,31 @@ function Fleetform() {
     return ByCustomer[cust]?.filter((unit) => unit.done).length || 0;
   };
 
-  const UnitImages = ({ imageUrls }) => {
-    return ( 
-      <div className="unit-images">
-        {imageUrls && imageUrls.map((imageUrl, index) => (
-          <img key={index} src={imageUrl} alt={`Image ${index + 1}`} className='unit-image'/>
-        ))}
-      </div>
-    );
+  const handleImageClick = (imageUrl) => {
+    setSelectedImageUrl(imageUrl);
+    setImagePopupVisible(true);
   };
+
+  const closeImagePopup = () => {
+    setImagePopupVisible(false);
+    setSelectedImageUrl('');
+  };
+
+  const UnitImages = ({ imageUrls, comments }) => (
+    <div className="unit-images">
+      {imageUrls && imageUrls.map((imageUrl, index) => (
+        <div key={index}>
+          <img
+            src={imageUrl}
+            alt={`Image ${index + 1}`}
+            className='unit-image'
+            onClick={() => handleImageClick(imageUrl)}
+          />
+          {comments[index] && <p className='unit-comment'>Position: {comments[index]}</p>}
+        </div>
+      ))}
+    </div>
+  );
 
 
 
@@ -137,10 +214,10 @@ function Fleetform() {
 
   return (
     <div>
-       {/* <div className='current user'>
-        <p className='username'>Welcome,</p> 
-         <button>Log out</button> 
-       </div> */}
+      <div className='current user'>
+        <p className='username'>Welcome,</p>
+        {/* <button>Log out</button> */}
+      </div>
       <h1 className='title'>FleetPro</h1>
 
       <div className='customer-creation'>
@@ -151,7 +228,7 @@ function Fleetform() {
         placeholder='Enter Customer Name'
         />
         <button onClick={handleCreateNewCustomer}>Start</button>
-      </div> 
+      </div>
 
 
       <h2 className='customer'>Customer: {selectedCustomer}</h2>
@@ -187,6 +264,7 @@ function Fleetform() {
                >
                  Add Specifics
                </button>
+               <button onClick={() => handleUploadClick(index)} className='unit-button'>Upload Image</button>
                <ul>
                
                  {unit.TaskSpecifics.map((details, subIndex) => (
@@ -195,7 +273,10 @@ function Fleetform() {
                    </li>
                  ))}
                </ul>
+               <UnitImages imageUrls={unit.imageUrls} comments={unit.comments} />
                <button onClick={() => handleDeleteUnitNumber(index)}>Delete</button>
+
+               
              </li>
              
            );
@@ -214,6 +295,29 @@ function Fleetform() {
         </>
       )}
       <button className='submission-button' onClick={submitFleet}>submit</button>
+      {commentInputVisible && (
+        <>
+          <div className="overlay" onClick={() => setCommentInputVisible(false)} />
+          <div className="comment-popup">
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Enter your comment"
+            />
+            <button onClick={handleCommentSubmit}>Enter Position and Upload Images</button>
+          </div>
+        </>
+      )}
+
+{isImagePopupVisible && (
+        <>
+          <div className="overlay" onClick={closeImagePopup} />
+          <div className="image-popup">
+            <img src={selectedImageUrl} alt="Selected" />
+          </div>
+        </>
+      )}
 
 
       <h1>See how you're other fleets are doing!</h1>
@@ -253,7 +357,7 @@ function Fleetform() {
                   </li>
                 ))}
             </ul>
-            <UnitImages  imageUrls={unit.imageUrls}  />
+            <UnitImages imageUrls={unit.imageUrls} comments={unit.comments} />
           </li>
         ))}
       </ul>

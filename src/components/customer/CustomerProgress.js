@@ -6,6 +6,8 @@ import './customerprogress.css'
 const Customerprogress = () => {
   const [FleetsFromFirestore, setFleetsFromFirestore] = useState([]);
   const [showCustomerCategory, setShowCustomerForCategory] =useState(null);
+  const [isImagePopupVisible, setImagePopupVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
 
 
   useEffect(() => {
@@ -58,22 +60,38 @@ const Customerprogress = () => {
   };
 
 
-  const UnitImages = ({ imageUrls }) => {
-    return ( 
-      <div className="unit-images">
-        {imageUrls && imageUrls.map((imageUrl, index) => (
-          <img key={index} src={imageUrl} alt={`Image ${index + 1}`} className='unit-image'/>
-        ))}
-      </div>
-    );
+  const handleImageClick = (imageUrl) => {
+    setSelectedImageUrl(imageUrl);
+    setImagePopupVisible(true);
   };
+
+  const closeImagePopup = () => {
+    setImagePopupVisible(false);
+    setSelectedImageUrl('');
+  };
+
+  const UnitImages = ({ imageUrls, comments }) => (
+    <div className="unit-images">
+      {imageUrls && imageUrls.map((imageUrl, index) => (
+        <div key={index}>
+          <img
+            src={imageUrl}
+            alt={`Image ${index + 1}`}
+            className='unit-image'
+            onClick={() => handleImageClick(imageUrl)}
+          />
+          {comments[index] && <p className='unit-comment'>Position: {comments[index]}</p>}
+        </div>
+      ))}
+    </div>
+  );
   return (
     <div>
       <div className='current-user'>
         <p className='username'>Welcome,</p>        
         {/* <button className='logout'>Log Out</button> */}
       </div>
-      <h2 className='fleetList-title'>Fleets</h2>
+      <h2 className='fleetList-title'>PLM Fleets</h2>
 
       <div className="category-cards">
         {Object.keys(ByCustomer).map((Fleetcustomer) => (
@@ -111,7 +129,7 @@ const Customerprogress = () => {
                           </li>
                         ))}
                     </ul>
-                    <UnitImages  imageUrls={unit.imageUrls}  />
+                    <UnitImages imageUrls={unit.imageUrls} comments={unit.comments} />
                   </li>
                 ))}
               </ul>
@@ -119,6 +137,15 @@ const Customerprogress = () => {
           </div>
         ))}
       </div>
+
+      {isImagePopupVisible && (
+        <>
+          <div className="overlay" onClick={closeImagePopup} />
+          <div className="image-popup">
+            <img src={selectedImageUrl} alt="Selected" />
+          </div>
+        </>
+      )}
     </div>
   );
 };
