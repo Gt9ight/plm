@@ -223,6 +223,7 @@ function Fleetform() {
       <div className='customer-creation'>
         <input
         type='text'
+        inputMode='text'
         value={newCustomer}
         onChange={handleNewCustomerChange}
         placeholder='Enter Customer Name'
@@ -235,6 +236,7 @@ function Fleetform() {
       <div className='input-section'>
         <input
         type='text'
+        inputMode='text'
         value={inputValue}
         onChange={handleInputChange}
         placeholder='unit number'
