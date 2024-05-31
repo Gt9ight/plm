@@ -4,6 +4,7 @@ import './fleetform.css'
 import { createFleetDatabase, db, storage } from '../../utilis/Firebase';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import imageCompression from 'browser-image-compression';
 
 
 function Fleetform() {
@@ -21,6 +22,7 @@ function Fleetform() {
   const [commentInputVisible, setCommentInputVisible] = useState(false);
   const [isImagePopupVisible, setImagePopupVisible] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState('');
+  
 
   const handleNewCustomerChange = (e) => {
     setNewCustomer(e.target.value);
@@ -106,10 +108,30 @@ function Fleetform() {
     fileInput.multiple = true;
     fileInput.onchange = (e) => {
       const files = Array.from(e.target.files);
-      uploadImages(currentUnitIndex, files, comment);
+      compressAndUploadImages(currentUnitIndex, files, comment);
     };
     fileInput.click();
     setCommentInputVisible(false);
+  };
+
+  const compressAndUploadImages = async (unitIndex, files, comment) => {
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      };
+
+      const compressedFiles = await Promise.all(
+        files.map(async (file) => {
+          return await imageCompression(file, options);
+        })
+      );
+
+      uploadImages(unitIndex, compressedFiles, comment);
+    } catch (error) {
+      console.error('Error compressing images:', error);
+    }
   };
 
   const uploadImages = async (unitIndex, files, comment) => {
@@ -223,7 +245,6 @@ function Fleetform() {
       <div className='customer-creation'>
         <input
         type='text'
-        inputMode='text'
         value={newCustomer}
         onChange={handleNewCustomerChange}
         placeholder='Enter Customer Name'
@@ -236,7 +257,6 @@ function Fleetform() {
       <div className='input-section'>
         <input
         type='text'
-        inputMode='text'
         value={inputValue}
         onChange={handleInputChange}
         placeholder='unit number'
