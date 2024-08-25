@@ -38,7 +38,7 @@ function Login() {
         <p>Por favor confirme su usuario y contraseña actualmente</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <input
-            type="text"
+            type="tel"
             placeholder="Correo electronico o numero de telefono"
             value={email}
             onChange={handleEmailChange}
