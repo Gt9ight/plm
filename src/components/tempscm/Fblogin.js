@@ -53,9 +53,8 @@ function Login() {
         </form>
         <a href="/">Cuenta olvidada?</a>
         <div className="divider"></div>
-        <button className="signup-button">Crear Nueva Cuenta</button>
       </div>
-      <p className="create-page"><a href="/">Create a Page</a> for a celebrity, brand or business.</p>
+
     </div>
   );
 }
